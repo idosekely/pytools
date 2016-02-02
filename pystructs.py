@@ -1,7 +1,9 @@
 import weakref
 import time
-from decorators import synchronized
 from multiprocessing import Lock
+
+from asynx import synchronized
+
 lock = Lock()
 
 

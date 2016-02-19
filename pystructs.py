@@ -1,10 +1,10 @@
 import weakref
 import time
-from multiprocessing import Lock
+from multiprocessing import RLock
 
 from asynx import synchronized
 
-lock = Lock()
+lock = RLock()
 
 
 class Proxy(object):
@@ -96,14 +96,15 @@ class SelfDestruct(object):
     timeout = None
     modified = None
 
-    def __init__(self, obj, timeout=None):
+    def __init__(self, obj=None, timeout=None):
         self.obj = obj
         self.set_timer(timeout)
 
     @property
     def obj(self):
         try:
-            return weakref.proxy(self._obj)
+            self.prune()
+            return weakref.ref(self._obj)()
         except TypeError:
             return None
 
@@ -113,17 +114,17 @@ class SelfDestruct(object):
 
     @obj.deleter
     def obj(self):
-        del self._obj
+        self._obj = None
 
     def set_timer(self, timeout=None):
         self.modified = time.time()
         self.timeout = self.timeout or timeout
 
     def __getattr__(self, item):
-        self.prune()
         return getattr(self.obj, item)
 
     @synchronized(lock)
     def prune(self):
         if self.timeout and time.time() - self.modified > self.timeout:
-            del self._obj
+            del self.obj
+            self.timeout = None
